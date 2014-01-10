@@ -12,6 +12,23 @@ This file is licensed under the GPLv2
 #include <string.h>
 #include "tap.h"
 
+static struct {
+  char *clear;
+  char *red;
+  char *green;
+  char *yellow;
+  char *cyan;
+  char *gray;
+} ansicodes = {
+  "\x1b[0m",
+  "\x1b[31m",
+  "\x1b[32m",
+  "\x1b[33m",
+  "\x1b[36m",
+  "\x1b[30;1m"
+};
+
+static int ansicolor;
 static int expected_tests = NO_PLAN;
 static int failed_tests;
 static int current_test;
@@ -37,6 +54,11 @@ vstrdupf (const char *fmt, va_list args) {
 }
 
 void
+tap_ansicolor(int on) {
+  ansicolor = on;
+}
+
+void
 tap_plan (int tests, const char *fmt, ...) {
     expected_tests = tests;
     if (tests == SKIP_ALL) {
@@ -45,12 +67,33 @@ tap_plan (int tests, const char *fmt, ...) {
         va_start(args, fmt);
         why = vstrdupf(fmt, args);
         va_end(args);
-        printf("1..0 ");
+        if (ansicolor) {
+            printf(
+                "%s1%s..%s0%s",
+                ansicodes.cyan,
+                ansicodes.clear,
+                ansicodes.cyan,
+                ansicodes.clear
+            );
+        } else {
+            printf("1..0 ");
+        }
         note("SKIP %s\n", why);
         exit(0);
     }
     if (tests != NO_PLAN) {
-        printf("1..%d\n", tests);
+        if (ansicolor) {
+            printf(
+                "%s1%s..%s%d%s\n",
+                ansicodes.cyan,
+                ansicodes.clear,
+                ansicodes.cyan,
+                tests,
+                ansicodes.clear
+            );
+        } else {
+            printf("1..%d\n", tests);
+        }
     }
 }
 
@@ -59,7 +102,19 @@ vok_at_loc (const char *file, int line, int test, const char *fmt,
             va_list args)
 {
     char *name = vstrdupf(fmt, args);
-    printf("%sok %d", test ? "" : "not ", ++current_test);
+    if (ansicolor) {
+        printf(
+            "%s%sok%s %s%d%s",
+            test ? ansicodes.green : ansicodes.red,
+            test ? "" : "not ",
+            ansicodes.clear,
+            ansicodes.cyan,
+            ++current_test,
+            ansicodes.clear
+        );
+    } else {
+        printf("%sok %d", test ? "" : "not ", ++current_test);
+    }
     if (*name)
         printf(" - %s", name);
     if (todo_mesg) {
@@ -178,7 +233,17 @@ vdiag_to_fh (FILE *fh, const char *fmt, va_list args) {
         char c = mesg[i];
         if (!c || c == '\n') {
             mesg[i] = '\0';
-            fprintf(fh, "# %s\n", line);
+            if (ansicolor) {
+                fprintf(
+                    fh,
+                    "%s# %s%s\n",
+                    ansicodes.gray,
+                    line,
+                    ansicodes.clear
+                );
+            } else {
+                fprintf(fh, "# %s\n", line);
+            }
             if (!c)
                 break;
             mesg[i] = c;
